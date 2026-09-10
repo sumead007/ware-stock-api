@@ -34,7 +34,7 @@ public class ProblemDetailsExceptionHandler : IExceptionHandler
             ErrorCode = errorCode,
             Errors = errors,
             Message = exception.Message,
-            RequestId = httpContext.TraceIdentifier,
+            RequestId = Guid.NewGuid().ToString(),
             StatusCode = statusCode
         };
 
