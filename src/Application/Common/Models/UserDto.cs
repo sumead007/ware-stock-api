@@ -25,9 +25,12 @@ public class UserDto
     /// <summary>
     /// Not part of the public `User` schema (only `firstName`/`lastName` are) — used internally to
     /// compose the Settings `profile.name`/`account.name` fields and the Auth `user.name` field.
+    /// Not `required`: combined with <see cref="JsonIgnoreAttribute"/>, System.Text.Json cannot
+    /// build a serialization contract for a required-but-ignored property (throws at first use,
+    /// including OpenAPI schema generation).
     /// </summary>
     [JsonIgnore]
-    public required string DisplayName { get; init; }
+    public string DisplayName { get; init; } = string.Empty;
 
     public UserStatus Status { get; init; }
 
