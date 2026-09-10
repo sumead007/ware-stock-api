@@ -39,9 +39,22 @@ public static class DependencyInjection
         builder.Services.AddAuthorizationBuilder();
 
         builder.Services
-            .AddIdentityCore<ApplicationUser>()
+            .AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.User.RequireUniqueEmail = true;
+
+                // Relaxed to match the OpenAPI spec's password rule ("must contain at least one
+                // lowercase letter and one digit", minLength 8) instead of ASP.NET Identity's
+                // stricter defaults (uppercase + non-alphanumeric required).
+                options.Password.RequiredLength = 7;
+                options.Password.RequireDigit = true;
+                options.Password.RequireLowercase = true;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireNonAlphanumeric = false;
+            })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
+            .AddDefaultTokenProviders()
             .AddApiEndpoints();
 
         builder.Services.AddSingleton(TimeProvider.System);

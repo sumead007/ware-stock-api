@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using WareStockApi.Application.Common.Interfaces;
 using WareStockApi.Domain.Entities;
 using WareStockApi.Infrastructure.Identity;
@@ -11,9 +11,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
-    public DbSet<TodoList> TodoLists => Set<TodoList>();
+    public DbSet<WorkTask> WorkTasks => Set<WorkTask>();
 
-    public DbSet<TodoItem> TodoItems => Set<TodoItem>();
+    public DbSet<Product> Products => Set<Product>();
+
+    public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
+
+    public DbSet<ProductUnit> ProductUnits => Set<ProductUnit>();
+
+    public DbSet<StockTransaction> StockTransactions => Set<StockTransaction>();
+
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+
+    public DbSet<Message> Messages => Set<Message>();
+
+    public DbSet<Integration> Integrations => Set<Integration>();
+
+    public DbSet<UserSettings> UserSettings => Set<UserSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

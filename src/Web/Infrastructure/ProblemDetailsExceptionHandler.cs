@@ -1,52 +1,47 @@
-using WareStockApi.Application.Common.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
+using ConflictException = WareStockApi.Application.Common.Exceptions.ConflictException;
+using ForbiddenAccessException = WareStockApi.Application.Common.Exceptions.ForbiddenAccessException;
+using NotFoundException = WareStockApi.Application.Common.Exceptions.NotFoundException;
+using ValidationException = WareStockApi.Application.Common.Exceptions.ValidationException;
 
 namespace WareStockApi.Web.Infrastructure;
 
 /// <summary>
-/// Converts well-known application exceptions into RFC 9110-compliant <see cref="ProblemDetails"/> responses,
-/// mapping <see cref="ValidationException"/> → 400, <see cref="NotFoundException"/> → 404,
-/// <see cref="UnauthorizedAccessException"/> → 401, and <see cref="ForbiddenAccessException"/> → 403.
-/// Unrecognised exceptions are not handled and fall through to the default middleware.
+/// Converts well-known application exceptions into the shared <see cref="ApiErrorResponse"/>
+/// envelope, mapping <see cref="ValidationException"/> → 400, <see cref="UnauthorizedAccessException"/> → 401,
+/// <see cref="ForbiddenAccessException"/> → 403, <see cref="NotFoundException"/> → 404, and
+/// <see cref="ConflictException"/> → 409. Unrecognised exceptions are not handled and fall
+/// through to the default middleware.
 /// </summary>
 public class ProblemDetailsExceptionHandler : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        var (statusCode, problemDetails) = exception switch
+        var (statusCode, errorCode, errors) = exception switch
         {
-            ValidationException ve => (StatusCodes.Status400BadRequest, (ProblemDetails)new ValidationProblemDetails(ve.Errors)
-            {
-                Status = StatusCodes.Status400BadRequest,
-                Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1"
-            }),
-            NotFoundException ne => (StatusCodes.Status404NotFound, new ProblemDetails
-            {
-                Status = StatusCodes.Status404NotFound,
-                Type = "https://tools.ietf.org/html/rfc9110#section-15.5.5",
-                Title = "The specified resource was not found.",
-                Detail = ne.Message
-            }),
-            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, new ProblemDetails
-            {
-                Status = StatusCodes.Status401Unauthorized,
-                Title = "Unauthorized",
-                Type = "https://tools.ietf.org/html/rfc9110#section-15.5.2"
-            }),
-            ForbiddenAccessException => (StatusCodes.Status403Forbidden, new ProblemDetails
-            {
-                Status = StatusCodes.Status403Forbidden,
-                Title = "Forbidden",
-                Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4"
-            }),
-            _ => (-1, null)
+            ValidationException ve => (StatusCodes.Status400BadRequest, "VALIDATION_ERROR", ve.Errors),
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "UNAUTHORIZED", EmptyErrors),
+            ForbiddenAccessException => (StatusCodes.Status403Forbidden, "FORBIDDEN", EmptyErrors),
+            NotFoundException => (StatusCodes.Status404NotFound, "NOT_FOUND", EmptyErrors),
+            ConflictException => (StatusCodes.Status409Conflict, "CONFLICT", EmptyErrors),
+            _ => (-1, "", EmptyErrors)
         };
 
-        if (problemDetails is null) return false;
+        if (statusCode == -1) return false;
+
+        var response = new ApiErrorResponse
+        {
+            ErrorCode = errorCode,
+            Errors = errors,
+            Message = exception.Message,
+            RequestId = httpContext.TraceIdentifier,
+            StatusCode = statusCode
+        };
 
         httpContext.Response.StatusCode = statusCode;
-        await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+        await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
         return true;
     }
+
+    private static readonly IDictionary<string, string[]> EmptyErrors = new Dictionary<string, string[]>();
 }

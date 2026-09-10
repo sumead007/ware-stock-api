@@ -1,5 +1,6 @@
 ﻿using WareStockApi.Application.Common.Interfaces;
 using WareStockApi.Domain.Common;
+using WareStockApi.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -49,6 +50,19 @@ public class AuditableEntityInterceptor : SaveChangesInterceptor
                 } 
                 entry.Entity.LastModifiedBy = _user.Id;
                 entry.Entity.LastModified = utcNow;
+            }
+        }
+
+        foreach (var entry in context.ChangeTracker.Entries<ApplicationUser>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                var utcNow = _dateTime.GetUtcNow();
+                if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.CreatedAt = utcNow;
+                }
+                entry.Entity.UpdatedAt = utcNow;
             }
         }
     }

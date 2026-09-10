@@ -1,6 +1,6 @@
-﻿using WareStockApi.Domain.Constants;
+using WareStockApi.Domain.Constants;
 using WareStockApi.Domain.Entities;
-using WareStockApi.Domain.ValueObjects;
+using WareStockApi.Domain.Enums;
 using WareStockApi.Infrastructure.Identity;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
@@ -76,33 +76,171 @@ public class ApplicationDbContextInitialiser
         }
 
         // Default users
-        var administrator = new ApplicationUser { UserName = "administrator@localhost", Email = "administrator@localhost" };
+        var administrator = new ApplicationUser
+        {
+            UserName = "administrator",
+            Email = "administrator@localhost",
+            FirstName = "System",
+            LastName = "Administrator",
+            DisplayName = "System Administrator",
+            PhoneNumber = "0800000000",
+            Status = UserStatus.Active
+        };
 
         if (_userManager.Users.All(u => u.UserName != administrator.UserName))
         {
             await _userManager.CreateAsync(administrator, "Administrator1!");
             if (!string.IsNullOrWhiteSpace(administratorRole.Name))
             {
-                await _userManager.AddToRolesAsync(administrator, new [] { administratorRole.Name });
+                await _userManager.AddToRolesAsync(administrator, new[] { administratorRole.Name });
             }
         }
 
-        // Default data
-        // Seed, if necessary
-        if (!_context.TodoLists.Any())
+        // A couple of extra demo users so lists, dashboard counts and chat seeding have real data.
+        var demoUsers = new[]
         {
-            _context.TodoLists.Add(new TodoList
+            new ApplicationUser
             {
-                Title = "Tasks",
-                Colour = Colour.Green,
-                Items =
+                UserName = "jane.doe", Email = "jane.doe@warestock.example.com",
+                FirstName = "Jane", LastName = "Doe", DisplayName = "Jane Doe",
+                PhoneNumber = "0811111111", Status = UserStatus.Active
+            },
+            new ApplicationUser
+            {
+                UserName = "john.smith", Email = "john.smith@warestock.example.com",
+                FirstName = "John", LastName = "Smith", DisplayName = "John Smith",
+                PhoneNumber = "0822222222", Status = UserStatus.Invited
+            }
+        };
+
+        foreach (var demoUser in demoUsers)
+        {
+            if (_userManager.Users.All(u => u.UserName != demoUser.UserName))
+            {
+                await _userManager.CreateAsync(demoUser, "Password1!");
+            }
+        }
+
+        // ----- Product categories / units -----
+
+        if (!_context.ProductCategories.Any())
+        {
+            _context.ProductCategories.AddRange(
+                new ProductCategory { Label = "Electronics" },
+                new ProductCategory { Label = "Office Supplies" },
+                new ProductCategory { Label = "Raw Materials" });
+        }
+
+        if (!_context.ProductUnits.Any())
+        {
+            _context.ProductUnits.AddRange(
+                new ProductUnit { Label = "pcs" },
+                new ProductUnit { Label = "box" },
+                new ProductUnit { Label = "kg" });
+        }
+
+        await _context.SaveChangesAsync();
+
+        // ----- Products -----
+
+        if (!_context.Products.Any())
+        {
+            var products = new[]
+            {
+                new Product { Sku = "SKU-0001", Name = "Wireless Mouse", Category = "Electronics", Unit = "pcs", Quantity = 120, MinStock = 20, Location = "A1-01", CostPrice = 150m },
+                new Product { Sku = "SKU-0002", Name = "Mechanical Keyboard", Category = "Electronics", Unit = "pcs", Quantity = 8, MinStock = 10, Location = "A1-02", CostPrice = 890m },
+                new Product { Sku = "SKU-0003", Name = "A4 Paper Ream", Category = "Office Supplies", Unit = "box", Quantity = 300, MinStock = 50, Location = "B2-01", CostPrice = 95m },
+                new Product { Sku = "SKU-0004", Name = "Steel Sheet", Category = "Raw Materials", Unit = "kg", Quantity = 15, MinStock = 25, Location = "C3-01", CostPrice = 45m }
+            };
+
+            _context.Products.AddRange(products);
+            await _context.SaveChangesAsync();
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            _context.StockTransactions.AddRange(
+                new StockTransaction
                 {
-                    new TodoItem { Title = "Make a todo list 📃" },
-                    new TodoItem { Title = "Check off the first item ✅" },
-                    new TodoItem { Title = "Realise you've already done two things on the list! 🤯"},
-                    new TodoItem { Title = "Reward yourself with a nice, long nap 🏆" },
-                }
-            });
+                    Type = TransactionType.Receive, ProductId = products[0].Id, ProductName = products[0].Name, Sku = products[0].Sku,
+                    Quantity = 50, Date = today.AddDays(-2), Counterparty = "Acme Supplies", PerformedBy = administrator.UserName!
+                },
+                new StockTransaction
+                {
+                    Type = TransactionType.Withdraw, ProductId = products[1].Id, ProductName = products[1].Name, Sku = products[1].Sku,
+                    Quantity = 2, Date = today.AddDays(-1), Counterparty = "IT Department", PerformedBy = administrator.UserName!
+                },
+                new StockTransaction
+                {
+                    Type = TransactionType.Receive, ProductId = products[2].Id, ProductName = products[2].Name, Sku = products[2].Sku,
+                    Quantity = 100, Date = today, Counterparty = "Office World", PerformedBy = administrator.UserName!
+                });
+
+            await _context.SaveChangesAsync();
+        }
+
+        // ----- Work tasks -----
+
+        if (!_context.WorkTasks.Any())
+        {
+            _context.WorkTasks.AddRange(
+                new WorkTask { Title = "Count warehouse A stock", Status = WorkTaskStatus.Todo, Label = TaskLabel.Documentation, Priority = TaskPriority.Medium },
+                new WorkTask { Title = "Fix barcode scanner bug", Status = WorkTaskStatus.InProgress, Label = TaskLabel.Bug, Priority = TaskPriority.High },
+                new WorkTask { Title = "Add CSV export for tasks", Status = WorkTaskStatus.Done, Label = TaskLabel.Feature, Priority = TaskPriority.Low },
+                new WorkTask { Title = "Investigate low stock alerts", Status = WorkTaskStatus.Backlog, Label = TaskLabel.Feature, Priority = TaskPriority.Critical });
+
+            await _context.SaveChangesAsync();
+        }
+
+        // ----- Integrations (read-only, seeded) -----
+
+        if (!_context.Integrations.Any())
+        {
+            _context.Integrations.AddRange(
+                new Integration { Id = "github", Name = "GitHub", Desc = "Connect your GitHub account to sync issues and pull requests.", Connected = true },
+                new Integration { Id = "slack", Name = "Slack", Desc = "Get notified in Slack when stock levels change.", Connected = false },
+                new Integration { Id = "notion", Name = "Notion", Desc = "Sync warehouse documentation with Notion.", Connected = false },
+                new Integration { Id = "google-drive", Name = "Google Drive", Desc = "Back up reports to Google Drive automatically.", Connected = true });
+
+            await _context.SaveChangesAsync();
+        }
+
+        // ----- Conversations + messages -----
+        // No "create message" endpoint exists in the API, so demo data is seeded here to make the
+        // Chats pages show something meaningful out of the box.
+
+        if (!_context.Conversations.Any())
+        {
+            var janeId = _userManager.Users.First(u => u.UserName == "jane.doe").Id;
+            var johnId = _userManager.Users.First(u => u.UserName == "john.smith").Id;
+
+            var conversationWithJane = new Conversation
+            {
+                ParticipantId = janeId,
+                Username = "jane.doe",
+                FullName = "Jane Doe",
+                Title = "Warehouse Supervisor",
+                Profile = string.Empty,
+                LastMessageAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+            };
+
+            var conversationWithJohn = new Conversation
+            {
+                ParticipantId = johnId,
+                Username = "john.smith",
+                FullName = "John Smith",
+                Title = "Procurement Officer",
+                Profile = string.Empty,
+                LastMessageAt = DateTimeOffset.UtcNow.AddHours(-3)
+            };
+
+            _context.Conversations.AddRange(conversationWithJane, conversationWithJohn);
+            await _context.SaveChangesAsync();
+
+            _context.Messages.AddRange(
+                new Message { ConversationId = conversationWithJane.Id, SenderId = janeId, Content = "Hi! The A1 shelf recount is done.", Timestamp = DateTimeOffset.UtcNow.AddMinutes(-30) },
+                new Message { ConversationId = conversationWithJane.Id, SenderId = administrator.Id, Content = "Thanks Jane, I'll check the numbers.", Timestamp = DateTimeOffset.UtcNow.AddMinutes(-10) },
+                new Message { ConversationId = conversationWithJane.Id, SenderId = janeId, Content = "Sounds good, let me know if anything looks off.", Timestamp = DateTimeOffset.UtcNow.AddMinutes(-5) },
+                new Message { ConversationId = conversationWithJohn.Id, SenderId = johnId, Content = "The new steel sheet order should arrive Friday.", Timestamp = DateTimeOffset.UtcNow.AddHours(-3) });
 
             await _context.SaveChangesAsync();
         }

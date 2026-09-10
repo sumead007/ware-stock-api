@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure.Identity;
 using WareStockApi.Application.Common.Interfaces;
 using WareStockApi.Infrastructure.Data;
@@ -22,12 +24,16 @@ public static class DependencyInjection
         builder.Services.Configure<ApiBehaviorOptions>(options =>
             options.SuppressModelStateInvalidFilter = true);
 
+        // Enums are serialised as camelCase strings (e.g. "todo", "inProgress") to match the
+        // OpenAPI spec; individual enum members can override this via [JsonStringEnumMemberName].
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
+
         builder.Services.AddEndpointsApiExplorer();
 
         builder.Services.AddOpenApi(options =>
         {
             options.AddOperationTransformer<ApiExceptionOperationTransformer>();
-            options.AddOperationTransformer<IdentityApiOperationTransformer>();
             options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
         });
 

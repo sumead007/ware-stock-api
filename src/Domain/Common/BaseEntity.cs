@@ -1,12 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WareStockApi.Domain.Common;
 
 public abstract class BaseEntity
 {
-    // This can easily be modified to be BaseEntity<T> and public T Id to support different key types.
-    // Using non-generic integer types for simplicity
-    public int Id { get; set; }
+    // string id (GUID) - matches the OpenAPI spec, where every entity's `id` is a string.
+    public string Id { get; set; } = Guid.NewGuid().ToString();
 
     private readonly List<BaseEvent> _domainEvents = new();
 
