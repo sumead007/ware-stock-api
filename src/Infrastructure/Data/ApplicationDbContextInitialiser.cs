@@ -96,7 +96,7 @@ public class ApplicationDbContextInitialiser
             }
         }
 
-        // A couple of extra demo users so lists, dashboard counts and chat seeding have real data.
+        // A couple of extra demo users so lists and dashboard counts have real data.
         var demoUsers = new[]
         {
             new ApplicationUser
@@ -178,71 +178,5 @@ public class ApplicationDbContextInitialiser
             await _context.SaveChangesAsync();
         }
 
-        // ----- Work tasks -----
-
-        if (!_context.WorkTasks.Any())
-        {
-            _context.WorkTasks.AddRange(
-                new WorkTask { Title = "Count warehouse A stock", Status = WorkTaskStatus.Todo, Label = TaskLabel.Documentation, Priority = TaskPriority.Medium },
-                new WorkTask { Title = "Fix barcode scanner bug", Status = WorkTaskStatus.InProgress, Label = TaskLabel.Bug, Priority = TaskPriority.High },
-                new WorkTask { Title = "Add CSV export for tasks", Status = WorkTaskStatus.Done, Label = TaskLabel.Feature, Priority = TaskPriority.Low },
-                new WorkTask { Title = "Investigate low stock alerts", Status = WorkTaskStatus.Backlog, Label = TaskLabel.Feature, Priority = TaskPriority.Critical });
-
-            await _context.SaveChangesAsync();
-        }
-
-        // ----- Integrations (read-only, seeded) -----
-
-        if (!_context.Integrations.Any())
-        {
-            _context.Integrations.AddRange(
-                new Integration { Id = "github", Name = "GitHub", Desc = "Connect your GitHub account to sync issues and pull requests.", Connected = true },
-                new Integration { Id = "slack", Name = "Slack", Desc = "Get notified in Slack when stock levels change.", Connected = false },
-                new Integration { Id = "notion", Name = "Notion", Desc = "Sync warehouse documentation with Notion.", Connected = false },
-                new Integration { Id = "google-drive", Name = "Google Drive", Desc = "Back up reports to Google Drive automatically.", Connected = true });
-
-            await _context.SaveChangesAsync();
-        }
-
-        // ----- Conversations + messages -----
-        // No "create message" endpoint exists in the API, so demo data is seeded here to make the
-        // Chats pages show something meaningful out of the box.
-
-        if (!_context.Conversations.Any())
-        {
-            var janeId = _userManager.Users.First(u => u.UserName == "jane.doe").Id;
-            var johnId = _userManager.Users.First(u => u.UserName == "john.smith").Id;
-
-            var conversationWithJane = new Conversation
-            {
-                ParticipantId = janeId,
-                Username = "jane.doe",
-                FullName = "Jane Doe",
-                Title = "Warehouse Supervisor",
-                Profile = string.Empty,
-                LastMessageAt = DateTimeOffset.UtcNow.AddMinutes(-5)
-            };
-
-            var conversationWithJohn = new Conversation
-            {
-                ParticipantId = johnId,
-                Username = "john.smith",
-                FullName = "John Smith",
-                Title = "Procurement Officer",
-                Profile = string.Empty,
-                LastMessageAt = DateTimeOffset.UtcNow.AddHours(-3)
-            };
-
-            _context.Conversations.AddRange(conversationWithJane, conversationWithJohn);
-            await _context.SaveChangesAsync();
-
-            _context.Messages.AddRange(
-                new Message { ConversationId = conversationWithJane.Id, SenderId = janeId, Content = "Hi! The A1 shelf recount is done.", Timestamp = DateTimeOffset.UtcNow.AddMinutes(-30) },
-                new Message { ConversationId = conversationWithJane.Id, SenderId = administrator.Id, Content = "Thanks Jane, I'll check the numbers.", Timestamp = DateTimeOffset.UtcNow.AddMinutes(-10) },
-                new Message { ConversationId = conversationWithJane.Id, SenderId = janeId, Content = "Sounds good, let me know if anything looks off.", Timestamp = DateTimeOffset.UtcNow.AddMinutes(-5) },
-                new Message { ConversationId = conversationWithJohn.Id, SenderId = johnId, Content = "The new steel sheet order should arrive Friday.", Timestamp = DateTimeOffset.UtcNow.AddHours(-3) });
-
-            await _context.SaveChangesAsync();
-        }
     }
 }

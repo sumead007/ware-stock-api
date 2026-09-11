@@ -4,8 +4,6 @@ namespace WareStockApi.Application.Common.Interfaces;
 
 public interface IApplicationDbContext
 {
-    DbSet<WorkTask> WorkTasks { get; }
-
     DbSet<Product> Products { get; }
 
     DbSet<ProductCategory> ProductCategories { get; }
@@ -13,12 +11,6 @@ public interface IApplicationDbContext
     DbSet<ProductUnit> ProductUnits { get; }
 
     DbSet<StockTransaction> StockTransactions { get; }
-
-    DbSet<Conversation> Conversations { get; }
-
-    DbSet<Message> Messages { get; }
-
-    DbSet<Integration> Integrations { get; }
 
     DbSet<UserSettings> UserSettings { get; }
 

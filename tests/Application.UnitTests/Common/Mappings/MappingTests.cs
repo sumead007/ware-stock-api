@@ -1,12 +1,9 @@
 using System.Runtime.CompilerServices;
 using AutoMapper;
-using WareStockApi.Application.Chats;
 using WareStockApi.Application.Common.Interfaces;
 using WareStockApi.Application.Common.Models;
-using WareStockApi.Application.Integrations;
 using WareStockApi.Application.Products;
 using WareStockApi.Application.Stock;
-using WareStockApi.Application.Tasks;
 using WareStockApi.Domain.Entities;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
@@ -40,11 +37,7 @@ public class MappingTests
 
     [Test]
     [TestCase(typeof(Product), typeof(ProductDto))]
-    [TestCase(typeof(WorkTask), typeof(TaskDto))]
     [TestCase(typeof(StockTransaction), typeof(StockTransactionDto))]
-    [TestCase(typeof(Conversation), typeof(ConversationDto))]
-    [TestCase(typeof(Message), typeof(MessageDto))]
-    [TestCase(typeof(Integration), typeof(IntegrationDto))]
     [TestCase(typeof(ProductCategory), typeof(LookupDto))]
     [TestCase(typeof(ProductUnit), typeof(LookupDto))]
     public void ShouldSupportMappingFromSourceToDestination(Type source, Type destination)

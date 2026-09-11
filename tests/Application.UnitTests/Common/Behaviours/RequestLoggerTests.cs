@@ -1,6 +1,6 @@
 using WareStockApi.Application.Common.Behaviours;
 using WareStockApi.Application.Common.Interfaces;
-using WareStockApi.Application.Tasks.Commands.CreateTask;
+using WareStockApi.Application.Products.Commands.CreateProduct;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
@@ -9,14 +9,14 @@ namespace WareStockApi.Application.UnitTests.Common.Behaviours;
 
 public class RequestLoggerTests
 {
-    private Mock<ILogger<CreateTaskCommand>> _logger = null!;
+    private Mock<ILogger<CreateProductCommand>> _logger = null!;
     private Mock<IUser> _user = null!;
     private Mock<IIdentityService> _identityService = null!;
 
     [SetUp]
     public void Setup()
     {
-        _logger = new Mock<ILogger<CreateTaskCommand>>();
+        _logger = new Mock<ILogger<CreateProductCommand>>();
         _user = new Mock<IUser>();
         _identityService = new Mock<IIdentityService>();
     }
@@ -26,9 +26,9 @@ public class RequestLoggerTests
     {
         _user.Setup(x => x.Id).Returns(Guid.NewGuid().ToString());
 
-        var requestLogger = new LoggingBehaviour<CreateTaskCommand>(_logger.Object, _user.Object, _identityService.Object);
+        var requestLogger = new LoggingBehaviour<CreateProductCommand>(_logger.Object, _user.Object, _identityService.Object);
 
-        await requestLogger.Process(new CreateTaskCommand { Title = "title" }, new CancellationToken());
+        await requestLogger.Process(new CreateProductCommand { Sku = "SKU-0001", Name = "name" }, new CancellationToken());
 
         _identityService.Verify(i => i.GetUserNameAsync(It.IsAny<string>()), Times.Once);
     }
@@ -36,9 +36,9 @@ public class RequestLoggerTests
     [Test]
     public async Task ShouldNotCallGetUserNameAsyncOnceIfUnauthenticated()
     {
-        var requestLogger = new LoggingBehaviour<CreateTaskCommand>(_logger.Object, _user.Object, _identityService.Object);
+        var requestLogger = new LoggingBehaviour<CreateProductCommand>(_logger.Object, _user.Object, _identityService.Object);
 
-        await requestLogger.Process(new CreateTaskCommand { Title = "title" }, new CancellationToken());
+        await requestLogger.Process(new CreateProductCommand { Sku = "SKU-0001", Name = "name" }, new CancellationToken());
 
         _identityService.Verify(i => i.GetUserNameAsync(It.IsAny<string>()), Times.Never);
     }
