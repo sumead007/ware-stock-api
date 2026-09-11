@@ -16,6 +16,21 @@ dotnet run --project .\src\AppHost
 
 The Aspire dashboard will open automatically, showing the application URLs and logs.
 
+## First login
+
+In `Development` (the default when running via `AppHost`), the database is dropped, recreated, and
+reseeded with sample data on every startup — see `ApplicationDbContextInitialiser`. A default
+administrator account is seeded so you can log in right away:
+
+| Field    | Value                     |
+| -------- | ------------------------- |
+| Email    | `administrator@localhost` |
+| Password | `Administrator1!`         |
+
+Call `POST /v1/auth/login` with these credentials (or use the **Authorize** button in Scalar at
+`/scalar`) to get a bearer token. Two extra demo users (`jane.doe`, `john.smith`, password
+`Password1!`) are also seeded so lists, the dashboard, and chats have realistic data out of the box.
+
 ## Database
 
 By default, `AppHost` automatically provisions a SQL Server **container** on startup (requires Docker running) — no setup needed.
