@@ -54,7 +54,6 @@ public static class DependencyInjection
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
-            .AddDefaultTokenProviders()
             .AddApiEndpoints();
 
         builder.Services.AddSingleton(TimeProvider.System);

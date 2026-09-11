@@ -1,5 +1,4 @@
 using System.Text.Json;
-using WareStockApi.Application.Common.Exceptions;
 using WareStockApi.Infrastructure.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -7,9 +6,11 @@ using Microsoft.AspNetCore.Identity;
 namespace WareStockApi.Web.Endpoints;
 
 /// <summary>
-/// Hand-rolled (not MediatR) authentication endpoints, following the same pattern as the
+/// Hand-rolled (not MediatR) authentication endpoint, following the same pattern as the
 /// <c>Logout</c> handler: <see cref="SignInManager{TUser}"/>/<see cref="UserManager{TUser}"/> are
 /// injected directly. Kept separate from <see cref="Users"/> (user CRUD, which requires auth).
+/// Only <c>login</c> is exposed — register/forgot-password/otp-verify have no wired UI in the
+/// frontend (see docs/api-spec/openapi.yaml's scope note) and were dropped accordingly.
 /// </summary>
 public class Auth : IEndpointGroup
 {
@@ -18,15 +19,9 @@ public class Auth : IEndpointGroup
     public static void Map(RouteGroupBuilder groupBuilder)
     {
         groupBuilder.MapPost(Login, "login").AllowAnonymous();
-        groupBuilder.MapPost(Register, "register").AllowAnonymous();
-        groupBuilder.MapPost(ForgotPassword, "forgot-password").AllowAnonymous();
-        groupBuilder.MapPost(VerifyOtp, "otp/verify").AllowAnonymous();
     }
 
     public record LoginRequest(string Email, string Password);
-    public record RegisterRequest(string Email, string Password);
-    public record ForgotPasswordRequest(string Email);
-    public record OtpVerifyRequest(string Email, string Otp);
 
     public record AuthUser(string AccountNo, string Email, IReadOnlyList<string> Role, long Exp, string? Name, string? Avatar);
     public record AuthLoginResponse(string AccessToken, AuthUser User);
@@ -46,93 +41,13 @@ public class Auth : IEndpointGroup
         if (user is null || !passwordValid)
         {
             return TypedResults.Json(
-                UnauthorizedError(httpContext, "Invalid email or password."),
+                UnauthorizedError("Invalid email or password."),
                 statusCode: StatusCodes.Status401Unauthorized);
         }
 
         var response = await BuildLoginResponseAsync(httpContext, userManager, signInManager, user);
 
         return TypedResults.Ok(response.ToApiResponse("Login successful."));
-    }
-
-    [EndpointSummary("Register")]
-    [EndpointDescription("Creates a new user account and logs them in, returning a bearer access token.")]
-    public static async Task<Created<ApiResponse<AuthLoginResponse>>> Register(
-        HttpContext httpContext,
-        UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager,
-        RegisterRequest request)
-    {
-        var existing = await userManager.FindByEmailAsync(request.Email);
-        if (existing is not null)
-        {
-            throw new ConflictException("This email address is already in use.");
-        }
-
-        var user = new ApplicationUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            DisplayName = request.Email.Split('@')[0],
-        };
-
-        var result = await userManager.CreateAsync(user, request.Password);
-
-        if (!result.Succeeded)
-        {
-            throw new ValidationException(result.Errors.Select(e =>
-                new FluentValidation.Results.ValidationFailure(nameof(request.Password), e.Description)));
-        }
-
-        var response = await BuildLoginResponseAsync(httpContext, userManager, signInManager, user);
-
-        return TypedResults.Created((string?)null, response.ToApiResponse("Registration successful.", StatusCodes.Status201Created));
-    }
-
-    [EndpointSummary("Forgot password")]
-    [EndpointDescription("Generates an OTP for password reset. Always returns 200 whether or not the email exists, to avoid leaking account information.")]
-    public static async Task<Ok<ApiResponse<object?>>> ForgotPassword(
-        UserManager<ApplicationUser> userManager,
-        ILogger<Auth> logger,
-        ForgotPasswordRequest request)
-    {
-        var user = await userManager.FindByEmailAsync(request.Email);
-
-        if (user is not null)
-        {
-            var otp = await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultPhoneProvider, "reset-password");
-            logger.LogInformation("Password reset OTP for {Email}: {Otp}", request.Email, otp);
-        }
-
-        return TypedResults.Ok(((object?)null).ToApiResponse("If the email exists, an OTP has been sent."));
-    }
-
-    [EndpointSummary("Verify OTP")]
-    [EndpointDescription("Verifies a one-time password previously issued by /auth/forgot-password.")]
-    public static async Task<Results<Ok<ApiResponse<object?>>, JsonHttpResult<ApiErrorResponse>>> VerifyOtp(
-        HttpContext httpContext,
-        UserManager<ApplicationUser> userManager,
-        OtpVerifyRequest request)
-    {
-        var user = await userManager.FindByEmailAsync(request.Email);
-
-        var valid = user is not null &&
-            await userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultPhoneProvider, "reset-password", request.Otp);
-
-        if (!valid)
-        {
-            return TypedResults.Json(
-                new ApiErrorResponse
-                {
-                    ErrorCode = "VALIDATION_ERROR",
-                    Message = "The OTP is invalid or has expired.",
-                    RequestId = httpContext.TraceIdentifier,
-                    StatusCode = StatusCodes.Status400BadRequest
-                },
-                statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        return TypedResults.Ok(((object?)null).ToApiResponse("OTP verified."));
     }
 
     /// <summary>
@@ -174,11 +89,11 @@ public class Auth : IEndpointGroup
         return new AuthLoginResponse(tokenPayload?.AccessToken ?? string.Empty, authUser);
     }
 
-    private static ApiErrorResponse UnauthorizedError(HttpContext httpContext, string message) => new()
+    private static ApiErrorResponse UnauthorizedError(string message) => new()
     {
         ErrorCode = "UNAUTHORIZED",
         Message = message,
-        RequestId = httpContext.TraceIdentifier,
+        RequestId = Guid.NewGuid().ToString(),
         StatusCode = StatusCodes.Status401Unauthorized
     };
 
