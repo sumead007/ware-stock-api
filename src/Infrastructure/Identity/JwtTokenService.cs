@@ -11,6 +11,14 @@ namespace WareStockApi.Infrastructure.Identity;
 
 public class JwtTokenService : IJwtTokenService
 {
+    /// <summary>
+    /// Claim type used for role claims in minted tokens. "role" isn't one of the RFC 7519
+    /// registered claim names, but it's the conventional short name (vs. the long
+    /// System.Security.Claims.ClaimTypes.Role URI) — must match TokenValidationParameters.RoleClaimType
+    /// in DependencyInjection.cs and the lookup in Web/Services/CurrentUser.cs.
+    /// </summary>
+    public const string RoleClaimType = "role";
+
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly JwtOptions _options;
@@ -63,12 +71,12 @@ public class JwtTokenService : IJwtTokenService
 
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Email, user.Email ?? string.Empty),
-            new(ClaimTypes.Name, user.DisplayName),
+            new(JwtRegisteredClaimNames.Sub, user.Id),
+            new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new(JwtRegisteredClaimNames.Name, user.DisplayName),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
-        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(roles.Select(role => new Claim(RoleClaimType, role)));
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Secret));
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);

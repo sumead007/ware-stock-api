@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 using WareStockApi.Application.Common.Interfaces;
 using WareStockApi.Infrastructure.Data;
 using WareStockApi.Infrastructure.Data.Interceptors;
@@ -50,6 +51,12 @@ public static class DependencyInjection
         })
         .AddJwtBearer(options =>
         {
+            // Without this, the handler silently remaps short claim names (e.g. "sub") back to
+            // the long legacy ClaimTypes.* URIs on every validated request, regardless of what's
+            // literally in the token — keep the principal's claim types matching what JwtTokenService
+            // actually minted (JwtRegisteredClaimNames.Sub/Email/Name + the "role" claim type below).
+            options.MapInboundClaims = false;
+
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -59,7 +66,9 @@ public static class DependencyInjection
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromSeconds(30)
+                ClockSkew = TimeSpan.FromSeconds(30),
+                NameClaimType = JwtRegisteredClaimNames.Sub,
+                RoleClaimType = JwtTokenService.RoleClaimType
             };
         });
 
