@@ -1,4 +1,3 @@
-using System.Text.Json;
 using WareStockApi.Infrastructure.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -6,10 +5,10 @@ using Microsoft.AspNetCore.Identity;
 namespace WareStockApi.Web.Endpoints;
 
 /// <summary>
-/// Hand-rolled (not MediatR) authentication endpoint, following the same pattern as the
-/// <c>Logout</c> handler: <see cref="SignInManager{TUser}"/>/<see cref="UserManager{TUser}"/> are
-/// injected directly. Kept separate from <see cref="Users"/> (user CRUD, which requires auth).
-/// Only <c>login</c> is exposed — register/forgot-password/otp-verify have no wired UI in the
+/// Hand-rolled (not MediatR) authentication endpoints, following the same pattern as the
+/// template's original <c>Logout</c> handler: <see cref="UserManager{TUser}"/> is injected
+/// directly. Kept separate from <see cref="Users"/> (user CRUD, which requires auth). Only
+/// login/refresh are exposed — register/forgot-password/otp-verify have no wired UI in the
 /// frontend (see docs/api-spec/openapi.yaml's scope note) and were dropped accordingly.
 /// </summary>
 public class Auth : IEndpointGroup
@@ -19,75 +18,63 @@ public class Auth : IEndpointGroup
     public static void Map(RouteGroupBuilder groupBuilder)
     {
         groupBuilder.MapPost(Login, "login").AllowAnonymous();
+        groupBuilder.MapPost(Refresh, "refresh").AllowAnonymous();
     }
 
     public record LoginRequest(string Email, string Password);
+    public record RefreshRequest(string RefreshToken);
 
     public record AuthUser(string AccountNo, string Email, IReadOnlyList<string> Role, long Exp, string? Name, string? Avatar);
-    public record AuthLoginResponse(string AccessToken, AuthUser User);
+    public record AuthLoginResponse(string AccessToken, string RefreshToken, AuthUser User);
 
     [EndpointSummary("Log in")]
-    [EndpointDescription("Authenticates a user by email and password and returns a bearer access token.")]
+    [EndpointDescription("Authenticates a user by email and password and returns a JWT access token plus a refresh token.")]
     public static async Task<Results<Ok<ApiResponse<AuthLoginResponse>>, JsonHttpResult<ApiErrorResponse>>> Login(
-        HttpContext httpContext,
         UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager,
-        LoginRequest request)
+        IJwtTokenService tokenService,
+        LoginRequest request,
+        CancellationToken cancellationToken)
     {
         var user = await userManager.FindByEmailAsync(request.Email);
-
         var passwordValid = user is not null && await userManager.CheckPasswordAsync(user, request.Password);
 
         if (user is null || !passwordValid)
         {
-            return TypedResults.Json(
-                UnauthorizedError("Invalid email or password."),
-                statusCode: StatusCodes.Status401Unauthorized);
+            return TypedResults.Json(UnauthorizedError("Invalid email or password."), statusCode: StatusCodes.Status401Unauthorized);
         }
 
-        var response = await BuildLoginResponseAsync(httpContext, userManager, signInManager, user);
+        var tokens = await tokenService.IssueTokensAsync(user, cancellationToken);
 
-        return TypedResults.Ok(response.ToApiResponse("Login successful."));
+        return TypedResults.Ok(ToResponse(tokens).ToApiResponse("Login successful."));
     }
 
-    /// <summary>
-    /// Signs the user in on the ASP.NET Identity bearer scheme and captures the framework-issued
-    /// <c>{ accessToken, expiresIn }</c> payload by temporarily redirecting the response body to a
-    /// buffer (the bearer token handler writes its own JSON response as part of <c>SignInAsync</c>),
-    /// then composes our own <see cref="AuthLoginResponse"/> envelope from it.
-    /// </summary>
-    private static async Task<AuthLoginResponse> BuildLoginResponseAsync(
-        HttpContext httpContext,
-        UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager,
-        ApplicationUser user)
+    [EndpointSummary("Refresh access token")]
+    [EndpointDescription("Exchanges a valid, unexpired refresh token for a new access token and refresh token. The redeemed refresh token is revoked (rotation) — it cannot be used again.")]
+    public static async Task<Results<Ok<ApiResponse<AuthLoginResponse>>, JsonHttpResult<ApiErrorResponse>>> Refresh(
+        IJwtTokenService tokenService,
+        RefreshRequest request,
+        CancellationToken cancellationToken)
     {
-        var originalBody = httpContext.Response.Body;
-        await using var buffer = new MemoryStream();
-        httpContext.Response.Body = buffer;
+        var tokens = await tokenService.RefreshAsync(request.RefreshToken, cancellationToken);
 
-        signInManager.AuthenticationScheme = IdentityConstants.BearerScheme;
-        await signInManager.SignInAsync(user, isPersistent: false);
+        if (tokens is null)
+        {
+            return TypedResults.Json(UnauthorizedError("Invalid or expired refresh token."), statusCode: StatusCodes.Status401Unauthorized);
+        }
 
-        httpContext.Response.Body = originalBody;
-        buffer.Seek(0, SeekOrigin.Begin);
-
-        var tokenPayload = await JsonSerializer.DeserializeAsync<BearerTokenPayload>(
-            buffer, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-        var roles = await userManager.GetRolesAsync(user);
-        var exp = DateTimeOffset.UtcNow.AddSeconds(tokenPayload?.ExpiresIn ?? 0).ToUnixTimeSeconds();
-
-        var authUser = new AuthUser(
-            AccountNo: user.Id,
-            Email: user.Email ?? string.Empty,
-            Role: roles.ToList(),
-            Exp: exp,
-            Name: user.DisplayName,
-            Avatar: user.AvatarUrl);
-
-        return new AuthLoginResponse(tokenPayload?.AccessToken ?? string.Empty, authUser);
+        return TypedResults.Ok(ToResponse(tokens).ToApiResponse("Token refreshed."));
     }
+
+    private static AuthLoginResponse ToResponse(AuthTokens tokens) => new(
+        tokens.AccessToken,
+        tokens.RefreshToken,
+        new AuthUser(
+            AccountNo: tokens.User.Id,
+            Email: tokens.User.Email ?? string.Empty,
+            Role: tokens.Roles,
+            Exp: tokens.AccessTokenExpiresUnix,
+            Name: tokens.User.DisplayName,
+            Avatar: tokens.User.AvatarUrl));
 
     private static ApiErrorResponse UnauthorizedError(string message) => new()
     {
@@ -96,6 +83,4 @@ public class Auth : IEndpointGroup
         RequestId = Guid.NewGuid().ToString(),
         StatusCode = StatusCodes.Status401Unauthorized
     };
-
-    private record BearerTokenPayload(string AccessToken, int ExpiresIn);
 }

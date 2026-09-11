@@ -1,12 +1,15 @@
-﻿using WareStockApi.Application.Common.Interfaces;
+﻿using System.Text;
+using WareStockApi.Application.Common.Interfaces;
 using WareStockApi.Infrastructure.Data;
 using WareStockApi.Infrastructure.Data.Interceptors;
 using WareStockApi.Infrastructure.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -33,8 +36,32 @@ public static class DependencyInjection
 
         builder.Services.AddScoped<ApplicationDbContextInitialiser>();
 
-        builder.Services.AddAuthentication()
-            .AddBearerToken(IdentityConstants.BearerScheme);
+        var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+            ?? throw new InvalidOperationException($"'{JwtOptions.SectionName}' configuration section is missing.");
+        Guard.Against.NullOrWhiteSpace(jwtOptions.Secret, message: "Jwt:Secret must be configured.");
+
+        builder.Services.AddSingleton(jwtOptions);
+        builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtOptions.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtOptions.Audience,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(30)
+            };
+        });
 
         builder.Services.AddAuthorizationBuilder();
 
@@ -53,8 +80,7 @@ public static class DependencyInjection
                 options.Password.RequireNonAlphanumeric = false;
             })
             .AddRoles<IdentityRole>()
-            .AddEntityFrameworkStores<ApplicationDbContext>()
-            .AddApiEndpoints();
+            .AddEntityFrameworkStores<ApplicationDbContext>();
 
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddTransient<IIdentityService, IdentityService>();

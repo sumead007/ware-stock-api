@@ -29,6 +29,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
 
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
 
+    /// <summary>
+    /// Not part of <see cref="IApplicationDbContext"/> — refresh tokens are an Identity/auth
+    /// implementation detail (same category as <see cref="ApplicationUser"/> itself), accessed
+    /// only from Infrastructure (<see cref="Identity.JwtTokenService"/>), never from Application.
+    /// </summary>
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
