@@ -15,6 +15,7 @@ var web = builder.AddProject<Projects.Web>(Services.WebApi)
     .WaitFor(databaseServer)
     .WithExternalHttpEndpoints()
     .WithAspNetCoreEnvironment()
+    .WithEndpoint("http", endpoint => endpoint.Port = 5164)
     .WithUrlForEndpoint("http", url =>
     {
         url.DisplayText = "Scalar API Reference";
