@@ -1,6 +1,7 @@
 using ValidationException = WareStockApi.Application.Common.Exceptions.ValidationException;
 using WareStockApi.Application.Common.Interfaces;
 using WareStockApi.Application.Common.Models;
+using WareStockApi.Domain.Enums;
 using FluentValidation.Results;
 
 namespace WareStockApi.Application.Users.Commands.UpdateUser;
@@ -16,6 +17,8 @@ public record UpdateUserCommand : IRequest<UserDto>
     public string Email { get; init; } = string.Empty;
 
     public string PhoneNumber { get; init; } = string.Empty;
+
+    public UserStatus Status { get; init; }
 
     public string? Password { get; init; }
 
@@ -53,7 +56,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
     public async Task<UserDto> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
     {
         var (result, user) = await _identityService.UpdateUserAsync(
-            request.Id, request.FirstName, request.LastName, request.Email, request.PhoneNumber, request.Password, cancellationToken);
+            request.Id, request.FirstName, request.LastName, request.Email, request.PhoneNumber, request.Status, request.Password, cancellationToken);
 
         if (!result.Succeeded || user is null)
         {

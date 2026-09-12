@@ -33,10 +33,11 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
 
         var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
         var startDate = today.AddDays(-6);
+        var startDateTime = startDate.ToDateTime(TimeOnly.MinValue);
 
         var recentTransactionEntities = await _context.StockTransactions
             .AsNoTracking()
-            .Where(t => t.Date >= startDate)
+            .Where(t => t.Date >= startDateTime)
             .ToListAsync(cancellationToken);
 
         var trend = Enumerable.Range(0, 7)
@@ -44,8 +45,8 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             .Select(date => new DailyTransactionTrendDto
             {
                 Date = date,
-                Receive = recentTransactionEntities.Where(t => t.Date == date && t.Type == TransactionType.Receive).Sum(t => t.Quantity),
-                Withdraw = recentTransactionEntities.Where(t => t.Date == date && t.Type == TransactionType.Withdraw).Sum(t => t.Quantity)
+                Receive = recentTransactionEntities.Where(t => DateOnly.FromDateTime(t.Date) == date && t.Type == TransactionType.Receive).Sum(t => t.Quantity),
+                Withdraw = recentTransactionEntities.Where(t => DateOnly.FromDateTime(t.Date) == date && t.Type == TransactionType.Withdraw).Sum(t => t.Quantity)
             })
             .ToList();
 
@@ -75,7 +76,6 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             {
                 Total = userCounts.Total,
                 Active = userCounts.Active,
-                Invited = userCounts.Invited,
                 Suspended = userCounts.Suspended,
                 RecentUsers = recentUsers.ToList()
             }

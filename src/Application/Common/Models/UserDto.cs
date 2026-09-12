@@ -39,4 +39,4 @@ public class UserDto
     public DateTimeOffset UpdatedAt { get; init; }
 }
 
-public record UserCounts(int Total, int Active, int Invited, int Suspended);
+public record UserCounts(int Total, int Active, int Suspended);

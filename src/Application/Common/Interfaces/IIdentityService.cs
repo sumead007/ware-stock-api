@@ -41,6 +41,7 @@ public interface IIdentityService
         string lastName,
         string email,
         string phoneNumber,
+        UserStatus status,
         string? password,
         CancellationToken cancellationToken = default);
 

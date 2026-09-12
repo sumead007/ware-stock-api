@@ -109,7 +109,7 @@ public class ApplicationDbContextInitialiser
             {
                 UserName = "john.smith", Email = "john.smith@warestock.example.com",
                 FirstName = "John", LastName = "Smith", DisplayName = "John Smith",
-                PhoneNumber = "0822222222", Status = UserStatus.Invited
+                PhoneNumber = "0822222222", Status = UserStatus.Inactive
             }
         };
 
@@ -156,23 +156,23 @@ public class ApplicationDbContextInitialiser
             _context.Products.AddRange(products);
             await _context.SaveChangesAsync();
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var now = DateTime.UtcNow;
 
             _context.StockTransactions.AddRange(
                 new StockTransaction
                 {
                     Type = TransactionType.Receive, ProductId = products[0].Id, ProductName = products[0].Name, Sku = products[0].Sku,
-                    Quantity = 50, Date = today.AddDays(-2), Counterparty = "Acme Supplies", PerformedBy = administrator.UserName!
+                    Quantity = 50, Date = now.AddDays(-2), Counterparty = "Acme Supplies", PerformedBy = administrator.UserName!
                 },
                 new StockTransaction
                 {
                     Type = TransactionType.Withdraw, ProductId = products[1].Id, ProductName = products[1].Name, Sku = products[1].Sku,
-                    Quantity = 2, Date = today.AddDays(-1), Counterparty = "IT Department", PerformedBy = administrator.UserName!
+                    Quantity = 2, Date = now.AddDays(-1), Counterparty = "IT Department", PerformedBy = administrator.UserName!
                 },
                 new StockTransaction
                 {
                     Type = TransactionType.Receive, ProductId = products[2].Id, ProductName = products[2].Name, Sku = products[2].Sku,
-                    Quantity = 100, Date = today, Counterparty = "Office World", PerformedBy = administrator.UserName!
+                    Quantity = 100, Date = now, Counterparty = "Office World", PerformedBy = administrator.UserName!
                 });
 
             await _context.SaveChangesAsync();

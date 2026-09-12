@@ -21,9 +21,8 @@ public class BulkSetUserStatusCommandValidatorTests
         result.IsValid.ShouldBeTrue();
     }
 
-    // The spec narrows bulk-status to active/inactive only, even though UserStatus has 4 values —
-    // Invited/Suspended must stay rejected here even if someone widens the enum's Must() later.
-    [TestCase(UserStatus.Invited)]
+    // The spec narrows bulk-status to active/inactive only, even though UserStatus has 3 values —
+    // Suspended must stay rejected here even if someone widens the enum's Must() later.
     [TestCase(UserStatus.Suspended)]
     public async Task ShouldRejectStatusesOutsideTheBulkOperationScope(UserStatus status)
     {

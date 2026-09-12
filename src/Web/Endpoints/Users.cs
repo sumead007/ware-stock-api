@@ -30,9 +30,18 @@ public class Users : IEndpointGroup
 
     [EndpointSummary("List users")]
     public static async Task<Ok<ApiListResponse<UserDto>>> GetUsers(
-        ISender sender, int page = 1, int pageSize = 10, UserStatus[]? status = null, string? username = null)
+        ISender sender, int page = 1, int pageSize = 10, string[]? status = null, string? username = null)
     {
-        var result = await sender.Send(new GetUsersQuery { Page = page, PageSize = pageSize, Status = status, Username = username });
+        // See StockTransactions.GetStockTransactions for why this can't bind as
+        // UserStatus[] directly — minimal API's enum query binding is case-sensitive
+        // against the C# member name, but responses serialize enums as camelCase.
+        var parsedStatuses = status?
+            .Select(s => Enum.TryParse<UserStatus>(s, ignoreCase: true, out var value) ? value : (UserStatus?)null)
+            .Where(v => v.HasValue)
+            .Select(v => v!.Value)
+            .ToArray();
+
+        var result = await sender.Send(new GetUsersQuery { Page = page, PageSize = pageSize, Status = parsedStatuses, Username = username });
 
         return TypedResults.Ok(result.ToApiListResponse());
     }

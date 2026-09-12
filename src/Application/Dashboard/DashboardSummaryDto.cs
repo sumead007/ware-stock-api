@@ -43,8 +43,6 @@ public class UsersSummaryDto
 
     public int Active { get; init; }
 
-    public int Invited { get; init; }
-
     public int Suspended { get; init; }
 
     public required IReadOnlyList<UserDto> RecentUsers { get; init; }

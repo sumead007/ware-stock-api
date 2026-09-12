@@ -59,7 +59,7 @@ public class CreateStockTransactionCommandHandlerTests
         Type = type,
         ProductId = productId ?? _product.Id,
         Quantity = quantity,
-        Date = DateOnly.FromDateTime(DateTime.UtcNow),
+        Date = DateTime.UtcNow,
         Counterparty = "Supplier Co",
         PerformedBy = "tester"
     };

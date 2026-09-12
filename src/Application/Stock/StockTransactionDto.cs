@@ -17,7 +17,7 @@ public class StockTransactionDto
 
     public decimal Quantity { get; init; }
 
-    public DateOnly Date { get; init; }
+    public DateTime Date { get; init; }
 
     public string? Reference { get; init; }
 

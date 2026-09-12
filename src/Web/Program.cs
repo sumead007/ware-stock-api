@@ -24,11 +24,21 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
-app.UseCors(static builder => 
+app.UseCors(static builder =>
     builder.AllowAnyMethod()
         .AllowAnyHeader()
         .AllowAnyOrigin());
+
+// Skip in Development: redirecting http (5164) -> https (7145) crosses origins,
+// and browsers strip the Authorization header on cross-origin redirects,
+// which broke every authenticated request when the SPA called the http port.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseFileServer();
 

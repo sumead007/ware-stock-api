@@ -142,6 +142,7 @@ public class IdentityService : IIdentityService
         string lastName,
         string email,
         string phoneNumber,
+        UserStatus status,
         string? password,
         CancellationToken cancellationToken = default)
     {
@@ -155,6 +156,7 @@ public class IdentityService : IIdentityService
         user.FirstName = firstName;
         user.LastName = lastName;
         user.DisplayName = $"{firstName} {lastName}".Trim();
+        user.Status = status;
 
         if (!string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
         {
@@ -234,10 +236,9 @@ public class IdentityService : IIdentityService
 
         var total = await users.CountAsync(cancellationToken);
         var active = await users.CountAsync(u => u.Status == UserStatus.Active, cancellationToken);
-        var invited = await users.CountAsync(u => u.Status == UserStatus.Invited, cancellationToken);
         var suspended = await users.CountAsync(u => u.Status == UserStatus.Suspended, cancellationToken);
 
-        return new UserCounts(total, active, invited, suspended);
+        return new UserCounts(total, active, suspended);
     }
 
     public async Task<IReadOnlyList<UserDto>> GetRecentUsersAsync(int count, CancellationToken cancellationToken = default) =>

@@ -20,9 +20,19 @@ public class StockTransactions : IEndpointGroup
 
     [EndpointSummary("List stock transactions")]
     public static async Task<Ok<ApiListResponse<StockTransactionDto>>> GetStockTransactions(
-        ISender sender, int page = 1, int pageSize = 10, TransactionType[]? type = null, string? sku = null)
+        ISender sender, int page = 1, int pageSize = 10, string[]? type = null, string? sku = null)
     {
-        var result = await sender.Send(new GetStockTransactionsQuery { Page = page, PageSize = pageSize, Type = type, Sku = sku });
+        // Minimal API's default enum query binding is case-sensitive against the C#
+        // member name (e.g. "Receive"), but the response body serializes enums as
+        // camelCase ("receive") per JsonStringEnumConverter(CamelCase) below — parse
+        // case-insensitively here so the same casing the API returns can be filtered on.
+        var parsedTypes = type?
+            .Select(t => Enum.TryParse<TransactionType>(t, ignoreCase: true, out var value) ? value : (TransactionType?)null)
+            .Where(v => v.HasValue)
+            .Select(v => v!.Value)
+            .ToArray();
+
+        var result = await sender.Send(new GetStockTransactionsQuery { Page = page, PageSize = pageSize, Type = parsedTypes, Sku = sku });
 
         return TypedResults.Ok(result.ToApiListResponse());
     }
