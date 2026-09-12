@@ -1,3 +1,4 @@
+using WareStockApi.Domain.Enums;
 using WareStockApi.Infrastructure.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -43,6 +44,14 @@ public class Auth : IEndpointGroup
             return TypedResults.Json(UnauthorizedError("Invalid email or password."), statusCode: StatusCodes.Status401Unauthorized);
         }
 
+        if (user.Status != UserStatus.Active)
+        {
+            var message = user.Status == UserStatus.Suspended
+                ? "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ"
+                : "บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ";
+            return TypedResults.Json(ForbiddenError(message), statusCode: StatusCodes.Status403Forbidden);
+        }
+
         var tokens = await tokenService.IssueTokensAsync(user, cancellationToken);
 
         return TypedResults.Ok(ToResponse(tokens).ToApiResponse("Login successful."));
@@ -82,5 +91,13 @@ public class Auth : IEndpointGroup
         Message = message,
         RequestId = Guid.NewGuid().ToString(),
         StatusCode = StatusCodes.Status401Unauthorized
+    };
+
+    private static ApiErrorResponse ForbiddenError(string message) => new()
+    {
+        ErrorCode = "ACCOUNT_DISABLED",
+        Message = message,
+        RequestId = Guid.NewGuid().ToString(),
+        StatusCode = StatusCodes.Status403Forbidden
     };
 }

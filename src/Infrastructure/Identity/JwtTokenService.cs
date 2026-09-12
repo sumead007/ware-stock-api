@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using WareStockApi.Domain.Enums;
 using WareStockApi.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +52,13 @@ public class JwtTokenService : IJwtTokenService
 
         if (existing is null || !existing.IsActive)
         {
+            return null;
+        }
+
+        if (existing.User.Status != UserStatus.Active)
+        {
+            existing.RevokedAt = DateTimeOffset.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
             return null;
         }
 
