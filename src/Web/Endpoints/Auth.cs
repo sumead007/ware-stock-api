@@ -22,26 +22,27 @@ public class Auth : IEndpointGroup
         groupBuilder.MapPost(Refresh, "refresh").AllowAnonymous();
     }
 
-    public record LoginRequest(string Email, string Password);
+    public record LoginRequest(string EmailOrUsername, string Password);
     public record RefreshRequest(string RefreshToken);
 
     public record AuthUser(string AccountNo, string Email, IReadOnlyList<string> Role, long Exp, string? Name, string? Avatar);
     public record AuthLoginResponse(string AccessToken, string RefreshToken, AuthUser User);
 
     [EndpointSummary("Log in")]
-    [EndpointDescription("Authenticates a user by email and password and returns a JWT access token plus a refresh token.")]
+    [EndpointDescription("Authenticates a user by email or username plus password and returns a JWT access token plus a refresh token.")]
     public static async Task<Results<Ok<ApiResponse<AuthLoginResponse>>, JsonHttpResult<ApiErrorResponse>>> Login(
         UserManager<ApplicationUser> userManager,
         IJwtTokenService tokenService,
         LoginRequest request,
         CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByEmailAsync(request.Email);
+        var user = await userManager.FindByEmailAsync(request.EmailOrUsername)
+            ?? await userManager.FindByNameAsync(request.EmailOrUsername);
         var passwordValid = user is not null && await userManager.CheckPasswordAsync(user, request.Password);
 
         if (user is null || !passwordValid)
         {
-            return TypedResults.Json(UnauthorizedError("Invalid email or password."), statusCode: StatusCodes.Status401Unauthorized);
+            return TypedResults.Json(UnauthorizedError("Invalid email/username or password."), statusCode: StatusCodes.Status401Unauthorized);
         }
 
         if (user.Status != UserStatus.Active)

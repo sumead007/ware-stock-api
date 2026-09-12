@@ -20,7 +20,7 @@ POST {{Web_HostAddress}}/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{Email}}",
+  "emailOrUsername": "{{Email}}",
   "password": "{{Password}}"
 }
 
