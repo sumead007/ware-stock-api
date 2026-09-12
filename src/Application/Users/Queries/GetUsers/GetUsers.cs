@@ -14,6 +14,10 @@ public record GetUsersQuery : IRequest<PaginatedList<UserDto>>
     public IReadOnlyCollection<UserStatus>? Status { get; init; }
 
     public string? Username { get; init; }
+
+    public DateOnly? From { get; init; }
+
+    public DateOnly? To { get; init; }
 }
 
 public class GetUsersQueryValidator : AbstractValidator<GetUsersQuery>
@@ -22,6 +26,10 @@ public class GetUsersQueryValidator : AbstractValidator<GetUsersQuery>
     {
         RuleFor(q => q.Page).GreaterThanOrEqualTo(1);
         RuleFor(q => q.PageSize).ValidPageSize();
+        RuleFor(q => q.From)
+            .LessThanOrEqualTo(q => q.To)
+            .When(q => q.From.HasValue && q.To.HasValue)
+            .WithMessage("'From' must be on or before 'To'.");
     }
 }
 
@@ -35,5 +43,5 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, PaginatedList
     }
 
     public Task<PaginatedList<UserDto>> Handle(GetUsersQuery request, CancellationToken cancellationToken) =>
-        _identityService.GetUsersAsync(request.Page, request.PageSize, request.Status, request.Username, cancellationToken);
+        _identityService.GetUsersAsync(request.Page, request.PageSize, request.Status, request.Username, request.From, request.To, cancellationToken);
 }

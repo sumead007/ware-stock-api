@@ -24,6 +24,8 @@ public interface IIdentityService
         int pageSize,
         IReadOnlyCollection<UserStatus>? statuses,
         string? username,
+        DateOnly? from = null,
+        DateOnly? to = null,
         CancellationToken cancellationToken = default);
 
     Task<(Result Result, UserDto? User)> CreateUserAsync(

@@ -90,6 +90,8 @@ public class IdentityService : IIdentityService
         int pageSize,
         IReadOnlyCollection<UserStatus>? statuses,
         string? username,
+        DateOnly? from = null,
+        DateOnly? to = null,
         CancellationToken cancellationToken = default)
     {
         var query = _userManager.Users.AsNoTracking().AsQueryable();
@@ -102,6 +104,18 @@ public class IdentityService : IIdentityService
         if (!string.IsNullOrWhiteSpace(username))
         {
             query = query.Where(u => u.UserName != null && u.UserName.Contains(username));
+        }
+
+        if (from.HasValue)
+        {
+            var fromDate = new DateTimeOffset(from.Value.ToDateTime(TimeOnly.MinValue));
+            query = query.Where(u => u.CreatedAt >= fromDate);
+        }
+
+        if (to.HasValue)
+        {
+            var toDate = new DateTimeOffset(to.Value.ToDateTime(TimeOnly.MaxValue));
+            query = query.Where(u => u.CreatedAt <= toDate);
         }
 
         var projected = query
